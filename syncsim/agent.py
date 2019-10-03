@@ -189,21 +189,28 @@ class Agent:
                     # endorsers?
                     old_idx = -1
                     i = 0
+                    endorsers_updated = False
                     for old in lst:
                         if old.startswith(match.group(1)):
                             old_match = m_of_n_of_group_pat.match(old)
                             old_endorsers = old_match.group(2).split(',') if old_match.group(2) else []
-                            endorsers = sorted(list(set(endorsers + old_endorsers)))
+                            new_endorsers = sorted(list(set(endorsers + old_endorsers)))
+                            if new_endorsers != endorsers:
+                                endorsers_updated = True
+                                endorsers = new_endorsers
                             old_idx = i
                             break
                         i += 1
-                    # Can we endorse this change?
+                    # Can we endorse this change? Or do we know something about the endorsements that this
+                    # change didn't know?
                     if len(endorsers) < n and (party == self.party) and (group in self.groups) and self.id not in endorsers:
                         # A newly added agent can't endorse the txn that adds itself.
                         if not delta.startswith('add-' + self.id):
                             endorsers.append(self.id)
                             endorsers.sort()
-                            delta = '%s by {%s}/%s@%s' % (match.group(1), ','.join(endorsers), n, group)
+                            endorsers_updated = True
+                    if endorsers_updated:
+                        delta = '%s by {%s}/%s@%s' % (match.group(1), ','.join(endorsers), n, group)
                     if old_idx > -1:
                         lst[old_idx] = delta
                     else:
