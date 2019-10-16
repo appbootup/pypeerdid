@@ -9,7 +9,7 @@ import re
 
 # Use to detect whether a string is a valid peer DID. Parses into capture groups
 # (1=numalgo, 2=base, 3=encnumbasis).
-PEER_DID_PAT = re.compile(r'^did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{45})$')
+PEER_DID_PAT = re.compile(r'^did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{46})$')
 
 # Where to store peer DIDs?
 PEER_DID_STORAGE_FOLDER = os.path.expanduser('~/.peerdids')
@@ -29,7 +29,7 @@ def get_did_from_doc(stored_variant_did_doc_bytes):
     # 2. Input validation (make sure DID doc is valid, incl requiring a key with the 'register'
     #    privilege).
 
-    return 'did:peer:1z' + base58.b58encode(b'\x12' + hashlib.sha256(stored_variant_did_doc_bytes).digest()).encode('ascii')
+    return 'did:peer:1z' + base58.b58encode(b'\x12\x20' + hashlib.sha256(stored_variant_did_doc_bytes).digest()).decode('ascii')
 
 
 def save_did(stored_variant_did_doc_bytes):

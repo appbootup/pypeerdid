@@ -86,7 +86,7 @@ def test_is_reserved():
     chars = "123456789abcdef"
     for i in range(len(chars) - 1):
         c = chars[i]
-        did = "did:peer:1z" + 45*c
+        did = "did:peer:1z" + 46*c
         assert is_reserved_peer_did(did)
         assert is_reserved_peer_did(did[:11] + did[11:].upper())
         assert is_reserved_peer_did(did[:-5] + did[-5:].upper())

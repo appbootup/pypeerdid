@@ -19,7 +19,7 @@ def test_repo_resolves_created_doc(scratch_repo):
     doc_1 = get_predefined('1')
     scratch_repo.new_doc(doc_1)
     # This is a bogus resolution in some ways; the doc had an "id" property but shouldn't have.
-    assert scratch_repo.resolve('did:peer:1z111111111111111111111111111111111111111111111') == \
+    assert scratch_repo.resolve('did:peer:1z1111111111111111111111111111111111111111111111') == \
         doc_1
 
 

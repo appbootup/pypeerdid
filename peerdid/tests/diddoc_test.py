@@ -91,4 +91,4 @@ def test_get_path_where_diddocs_differ():
 def test_resolve(scratch_space):
     dd = make_genesis_doc(scratch_space.name, BOGUS_CHANGE)
     assert get_path_where_diddocs_differ(dd.resolve(),
-        '{"id": "did:peer:1z6NRwAcQAJP8iFvVT3XqYcp97vtcuChXu9EzbZ9zJcMqdq", "say": "hello, world"}') is None
+        '{"id": "did:peer:1zQmPdtCnLd1sGv4FemhUt4kzLQXuDAywSC8cPSZMa27GPGs", "say": "hello, world"}') is None

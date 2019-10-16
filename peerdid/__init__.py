@@ -1,6 +1,6 @@
 import re
 
-PEER_DID_PAT = re.compile(r'^did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{45})$')
+PEER_DID_PAT = re.compile(r'^did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{46})$')
 
 
 def is_valid_peer_did(did: str):
@@ -13,7 +13,7 @@ def is_reserved_peer_did(did: str):
         m = PEER_DID_PAT.match(did)
         if m:
             c = did[11].lower()
-            for i in range(12, 56):
+            for i in range(12, 57):
                 if did[i].lower() != c:
                     return False
             return True

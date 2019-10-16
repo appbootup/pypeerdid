@@ -60,7 +60,7 @@ class Delta:
 
     @property
     def encnumbasis(self) -> str:
-        return base58.b58encode(b'\x12' + self.hash).decode('ascii')
+        return base58.b58encode(b'\x12\x20' + self.hash).decode('ascii')
 
     @property
     def change(self) -> str:
