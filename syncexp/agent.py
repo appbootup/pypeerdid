@@ -16,6 +16,7 @@ except:
     # Resolve relative paths.
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from peerdid.repo import Repo
+from peerdid import abbreviate
 
 
 valid_spec = r'[A-Za-z]\.[1-9](?:@([a-z]+))?(?:-([A-Za-z]\.[1-9](?:,[A-Za-z]\.[1-9])*))?'
@@ -105,6 +106,8 @@ class Agent:
             elif rest.startswith('gossip'):
                 self.say('Gossipping.')
                 self.gossip()
+            elif rest.startswith('res'):
+                self.resolve(rest[rest.find(' ') + 1:].lstrip())
             else:
                 m = add_rem_pat.match(rest)
                 if m:
@@ -159,6 +162,14 @@ class Agent:
         new_agent = Agent(spec, copy.deepcopy(self.deltas))
         self.broadcast(self.party + '+' + delta)
 
+    def resolve(self, did):
+        """\
+        A.2: res A.did@AB     -- resolve the specified DID
+        """
+        which_did = self.dids_by_party[did[0].upper()]
+        diddoc = self.repo.resolve(which_did)
+        self.say_pre(json.dumps(diddoc, indent=2))
+
     def rem(self, spec, suffix=None):
         """\
         A.2: rem A.4 [by N@M] -- simulate a delta that removes an active agent, optionally
@@ -179,12 +190,22 @@ class Agent:
         with self.deltas_lock:
             return '; '.join([x + '=' + self.get_state(x) for x in sorted(self.deltas.keys())])
 
+    @property
+    def state_summary(self):
+        items = []
+        for did in self.dids_by_party.values():
+            short_did = abbreviate(did)
+            snapshot = self.repo.get_doc(did).file.snapshot
+            short_snapshot = snapshot[:3] + '...' + snapshot[-3:]
+            items.append('%s = %s' % (short_did, short_snapshot))
+        items.sort()
+        return '; '.join(items)
+
     def state(self):
         """\
         B.3: state            -- report my state
         """
-        msg = json.dumps(self.repo.get_state(*self.dids_by_party.values()), indent=2)
-        self.say_pre(msg)
+        self.say_pre(self.state_summary)
 
     def get_state(self, party=None):
         if party is None:
@@ -280,4 +301,4 @@ class Agent:
             target = random.choice(self.reachable)
             self.gossip([target])
 
-    commands = ['simple', 'add', 'rem', 'state', 'gossip']
+    commands = ['simple', 'add', 'rem', 'state', 'gossip', 'resolve']

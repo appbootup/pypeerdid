@@ -42,7 +42,7 @@ def check(*args):
     agents_by_state = {}
     with Agent.all_lock:
         for a in Agent.all:
-            this_state = a.all_deltas
+            this_state = a.state_summary
             if this_state not in agents_by_state:
                 agents_by_state[this_state] = [a]
             else:

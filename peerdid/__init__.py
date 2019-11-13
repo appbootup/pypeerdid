@@ -12,6 +12,10 @@ def is_valid_peer_did(did: str):
         return bool(PEER_DID_PAT.match(did))
 
 
+def abbreviate(did: str):
+    return did[:15] + '...' + did[-3:]
+
+
 def is_reserved_peer_did(did: str):
     if did:
         m = PEER_DID_PAT.match(did)
