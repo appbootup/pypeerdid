@@ -1,30 +1,58 @@
 import copy
+import os
 import random
 import re
 import threading
 import time
+
+try:
+    # See if peerdid module is installed.
+    from peerdid.repo import Repo
+except:
+    import os
+    import sys
+    # If not, then assume we're working with source code.
+    # Resolve relative paths.
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from peerdid.repo import Repo
+
 
 valid_spec = r'[A-Za-z]\.[1-9](?:@([a-z]+))?(?:-([A-Za-z]\.[1-9](?:,[A-Za-z]\.[1-9])*))?'
 valid_spec_pat = re.compile(r'^%s$' % valid_spec)
 m_of_n_of_group_pat = re.compile(r'^(.*?)(?: by {(.*?)}/)?([1-9])@([a-z])$')
 simple_pat = re.compile(r'simple(?:\s+by\s+([1-9]@[a-z]))?$')
 add_rem_pat = re.compile(r'([a-z]+)\s+(%s)(?:\s+by\s+([1-9]@[a-z]))?$' % valid_spec)
+conn_pat = re.compile(r'([A-Z][.]\d)(\+-?\+|-\+|\+-)([A-Z].*)$')
+kid_pat = re.compile(r'"kid"\s*:\s*"([^"]+)"')
 
 
-def split_spec(spec):
-    m = valid_spec_pat.match(spec)
-    return spec[0], spec[2], m.group(1), m.group(2)
+def get_reachable(id, connections):
+    reachable = []
+    for conn in connections:
+        i = conn.find(id)
+        if i > -1:
+            # Is there an arrow pointing away from this id? If so, whatever's on the
+            # opposite side of the connector symbol from us is reachable by us.
+            m = conn_pat.match(conn)
+            if i < m.start(2) and m.group(2).endswith('+'):
+                reachable += m.group(3).split(',')
+            elif i > m.end(2) and m.group(2).startswith('+'):
+                reachable += m.group(1)
+    return reachable
 
 
-def norm_spec(spec):
-    party, num, groups, cant_reach = split_spec(spec)
-    return party.upper(), num, \
-           groups.lower() if groups else '', \
-           cant_reach.upper().split(',') if cant_reach else []
+def get_relationship(my_party, all_parties):
+    if len(all_parties) == 2:
+        other = [p for p in all_parties if p != my_party][0]
+        return my_party + other
+    all_parties.sort()
+    return '+'.join(all_parties)
 
 
 class Agent:
-
+    """
+    Represents an agent that's participating in the peer DID sync protocol.
+    """
     all_lock = threading.Lock()
     all = []
     thread_main = None
@@ -32,17 +60,35 @@ class Agent:
     cmds_lock = threading.Lock()
     cmds = []
 
-    def __init__(self, spec, initial_state=None):
-        self.party, self.num, self.groups, self.cant_reach = norm_spec(spec)
+    def __init__(self, session_folder, key, all_genesis, connections):
+        self.key = key
+        self.repo = Repo(os.path.join(session_folder, self.id))
+        self.can_reach = get_reachable(self.id, connections)
         self.cmd_idx = 0
-        if not initial_state:
-            initial_state = {}
-        self.deltas_lock = threading.Lock()
-        self.deltas = initial_state
         self.thread = threading.Thread(target=Agent.thread_main, args=(self,), daemon=True)
+        dids_by_party = {}
+        for genesis in all_genesis:
+            did = self.repo.new_doc(genesis)
+            m = kid_pat.search(genesis)
+            dids_by_party[m.group(1)[0]] = did
+        self.did = dids_by_party[self.party]
+        self.relationship = get_relationship(self.party, dids_by_party.keys())
+        self.say("Ready to sync in the %s relationship." % self.relationship)
         with Agent.all_lock:
             Agent.all.append(self)
         self.thread.start()
+
+    @property
+    def id(self):
+        return self.key['kid']
+
+    @property
+    def party(self):
+        return self.id[0]
+
+    @property
+    def num(self):
+        return self.id[2]
 
     def next(self):
         handled = True
@@ -71,10 +117,6 @@ class Agent:
         if not handled:
                 self.say('Huh? Try "help".')
         self.cmd_idx += 1
-
-    def init_parties(self, parties):
-        for p in parties:
-            self.deltas[p] = ['#']
 
     def simple(self, auth=None):
         """
@@ -148,17 +190,6 @@ class Agent:
         if party is None:
             party = self.party
         return '+'.join(self.deltas[party])
-
-    @property
-    def full_id(self):
-        id = self.id
-        if self.groups:
-            id += '@' + self.groups
-        return id
-
-    @property
-    def id(self):
-        return self.party + '.' + self.num
 
     def __str__(self):
         return self.id

@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import os
 
 from .delta import Delta
@@ -61,8 +63,18 @@ class File:
                 self._did = 'did:peer:1z' + g.encnumbasis
         return self._did
 
+    @property
+    def snapshot(self) -> str:
+        hashes = [d.hash for d in self.deltas]
+        hashes.sort()
+        hasher = hashlib.sha256()
+        for hash in hashes:
+            hasher.update(hash)
+        hash = hasher.digest()
+        return base64.urlsafe_b64encode(hash).decode('ascii')
+
 
 def canonical_fname(did_or_hash):
     if did_or_hash.startswith('did:peer:1z'):
         did_or_hash = did_or_hash[11:]
-    return did_or_hash + ".ddd"
+    return did_or_hash + ".diddocdeltas"

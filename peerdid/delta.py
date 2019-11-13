@@ -10,7 +10,7 @@ from .jsondetect import str_seems_like_json, bytes_seems_like_json
 
 def _is_base64(txt):
     try:
-        base64.b64decode(txt, validate=True)
+        base64.urlsafe_b64decode(txt)
         return True
     except:
         return False
@@ -20,26 +20,27 @@ _bad_json = ValueError('change should be JSON str/bytes/dict, or base64 text.')
 
 class Delta:
     """
-    An immutable {change, by, when} object. Also has an .encnumbasis property that uniquely
-    identifies it.
+    An immutable {change, by, when} object. Also has .hash and .encnumbasis properties that uniquely
+    identify it. The values of these properties are derived only from .change; they are not
+    affected by the values in .by and .when.
     """
     def __init__(self, change_json: Union[str, bytes, dict], by: List, when: str = None):
         if isinstance(change_json, str):
             if str_seems_like_json(change_json):
-                self._change = base64.b64encode(change_json.encode('utf-8')).decode('ascii')
+                self._change = base64.urlsafe_b64encode(change_json.encode('utf-8')).decode('ascii')
             elif _is_base64(change_json):
                 self._change = change_json
             else:
                 raise _bad_json
         elif isinstance(change_json, bytes):
             if bytes_seems_like_json(change_json):
-                self._change = base64.b64encode(change_json).decode('ascii')
+                self._change = base64.urlsafe_b64encode(change_json).decode('ascii')
             elif _is_base64(change_json):
                 self._change = change_json.decode('ascii')
             else:
                 raise _bad_json
         elif isinstance(change_json, dict):
-            self._change = base64.b64encode(json.dumps(change_json, indent=2).encode('utf-8')).decode('ascii')
+            self._change = base64.urlsafe_b64encode(json.dumps(change_json, indent=2).encode('utf-8')).decode('ascii')
         else:
             raise _bad_json
         self._by = by
@@ -50,13 +51,12 @@ class Delta:
 
     @property
     def hash(self) -> str:
+        """
+        The raw bytes, unencoded, that uniquely identify this delta.
+        """
         if not self._hash:
             self._hash = hashlib.sha256(self.change_json_bytes).digest()
         return self._hash
-
-    @property
-    def hexhash(self) -> str:
-        return hex(self.hash)
 
     @property
     def encnumbasis(self) -> str:
@@ -76,7 +76,7 @@ class Delta:
 
     @property
     def change_json_bytes(self) -> bytes:
-        return base64.b64decode(self._change)
+        return base64.urlsafe_b64decode(self._change)
 
     @property
     def change_json_str(self) -> str:

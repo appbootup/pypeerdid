@@ -29,3 +29,10 @@ def test_autosave_false(scratch_file, sample_delta):
     assert not os.path.exists(scratch_file.path)
     scratch_file.save()
     assert os.path.exists(scratch_file.path)
+
+
+def test_snapshot_one_delta(scratch_file, sample_delta):
+    scratch_file.autosave = False
+    assert not os.path.exists(scratch_file.path)
+    scratch_file.append(sample_delta)
+    assert scratch_file.snapshot == 'WDuyVDIB7R1C6GhHX9lxhowEMCQkSw_QwBRtBvEFzVg='
