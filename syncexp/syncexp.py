@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import sys
+import textwrap
 import time
 import traceback
 import types
@@ -18,14 +19,14 @@ should_autogossip = False
 
 
 def quit():
-    """
+    """\
     quit                  -- end program
     """
     sys.exit(0)
 
 
 def autogossip(*args):
-    """
+    """\
     autogossip on|off     -- generate random background conversation
     """
     mode = 'on' if (args and args[0].lower() == 'on') else 'off'
@@ -35,7 +36,7 @@ def autogossip(*args):
 
 
 def check(*args):
-    """
+    """\
     check                 -- see whether all agents have synchronized state
     """
     agents_by_state = {}
@@ -55,9 +56,9 @@ def check(*args):
         stdout.say(report)
 
 
-def describe(*args):
-    """
-    describe [agentpat]   -- summarize all or some agents (wildcards ok).
+def reach(*args):
+    """\
+    reach [agentpat]      -- show where specified agent(s) can reach (wildcards ok).
     """
     pat = args[0] if args else '*'
     pat = re.compile(pat.replace('.', r'[.]').replace('*', '.*').replace('?', '.'), re.I)
@@ -65,19 +66,19 @@ def describe(*args):
     with Agent.all_lock:
         for a in Agent.all:
             if pat.match(a.id):
-                summary.append(a.description)
-    summary.append('(%d agents)' % len(summary))
-    stdout.say('\n'.join(summary))
+                summary.append(a.id + ': ' + ', '.join(a.can_reach))
+    stdout.say_pre('\n'.join(summary))
 
 
 def help(*args):
-    func_docs = [globals()[x].__doc__.strip() for x in funcs if x != 'help']
-    method_docs = [Agent.__dict__[x].__doc__.strip() for x in Agent.commands]
-    stdout.say("""General Commands
-    %s
-
-Agent-specific Commands
-    %s""" % ('\n    '.join(func_docs), '\n    '.join(method_docs)))
+    stdout.say('\nGeneral Commands')
+    for item in funcs:
+        if item != 'help':
+            stdout.say('    ' + textwrap.dedent(globals()[item].__doc__.rstrip()))
+    stdout.say("\nAgent-specific Commands")
+    for item in Agent.commands:
+        stdout.say('    ' + textwrap.dedent(Agent.__dict__[item].__doc__.rstrip()))
+    stdout.say('')
 
 
 funcs = [x for x in globals().keys() if type(globals()[x]) == types.FunctionType]
@@ -205,7 +206,7 @@ if __name__ == '__main__':
         print('\n' + console.wrap("""%s: run the peer DID sync protocol in exploratory mode.
 %s
 
-Syntax: python %s <session name> <DID doc template mappings> <connectivity statements>
+Syntax: python %s [<session name> <DID doc template mappings> <connectivity statements>]
 
 Example args:
 

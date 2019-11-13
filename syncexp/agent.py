@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import random
 import re
@@ -36,8 +37,9 @@ def get_reachable(id, connections):
             m = conn_pat.match(conn)
             if i < m.start(2) and m.group(2).endswith('+'):
                 reachable += m.group(3).split(',')
-            elif i > m.end(2) and m.group(2).startswith('+'):
-                reachable += m.group(1)
+            elif i >= m.end(2) and m.group(2).startswith('+'):
+                reachable.append(m.group(1))
+    reachable.sort()
     return reachable
 
 
@@ -66,13 +68,13 @@ class Agent:
         self.can_reach = get_reachable(self.id, connections)
         self.cmd_idx = 0
         self.thread = threading.Thread(target=Agent.thread_main, args=(self,), daemon=True)
-        dids_by_party = {}
+        self.dids_by_party = {}
         for genesis in all_genesis:
             did = self.repo.new_doc(genesis)
             m = kid_pat.search(genesis)
-            dids_by_party[m.group(1)[0]] = did
-        self.did = dids_by_party[self.party]
-        self.relationship = get_relationship(self.party, dids_by_party.keys())
+            self.dids_by_party[m.group(1)[0]] = did
+        self.did = self.dids_by_party[self.party]
+        self.relationship = get_relationship(self.party, self.dids_by_party.keys())
         self.say("Ready to sync in the %s relationship." % self.relationship)
         with Agent.all_lock:
             Agent.all.append(self)
@@ -119,10 +121,10 @@ class Agent:
         self.cmd_idx += 1
 
     def simple(self, auth=None):
-        """
+        """\
         A.2: simple [by N@M]  -- simulate a simple delta that doesn't change active agents
-                             (key rotate, add/remove rule, add/remove endpoint), optionally
-                             requiring N signatures from group M
+                                 (key rotate, add/remove rule, add/remove endpoint), optionally
+                                 requiring N signatures from group M
         """
         delta = '#' + hex(random.randint(4096, 256*256))[2:]
         if auth:
@@ -132,9 +134,9 @@ class Agent:
         self.broadcast(self.party + '+' + delta)
 
     def add(self, spec, auth=None):
-        """
+        """\
         A.8: add A.9 [by N@M] -- simulate a delta that adds an active agent, optionally
-                             requiring N signatures from group M
+                                 requiring N signatures from group M
         """
         try:
             party, num, groups, subtracted = norm_spec(spec)
@@ -158,33 +160,31 @@ class Agent:
         self.broadcast(self.party + '+' + delta)
 
     def rem(self, spec, suffix=None):
-        """
+        """\
         A.2: rem A.4 [by N@M] -- simulate a delta that removes an active agent, optionally
-                             requiring N signatures from group M
+                                 requiring N signatures from group M
         """
         pass
 
     def say(self, msg):
-        Agent.stdout.say(self.id + ' -- ' + msg)
+        Agent.stdout.say(self.id + ' --\n       ' + msg)
+
+    def say_pre(self, msg):
+        # Do simple indenting
+        msg = msg.replace('\n', '\n       ')
+        Agent.stdout.say_pre(self.id + ' -- ' + msg)
 
     @property
     def all_deltas(self):
         with self.deltas_lock:
             return '; '.join([x + '=' + self.get_state(x) for x in sorted(self.deltas.keys())])
 
-    @property
-    def description(self):
-        d = self.full_id
-        if self.cant_reach:
-            d += '-' + ','.join(self.cant_reach)
-        d += ' => ' + self.all_deltas
-        return d
-
     def state(self):
-        """
+        """\
         B.3: state            -- report my state
         """
-        self.say('OK; I see ' + self.all_deltas)
+        msg = json.dumps(self.repo.get_state(*self.dids_by_party.values()), indent=2)
+        self.say_pre(msg)
 
     def get_state(self, party=None):
         if party is None:
@@ -251,10 +251,6 @@ class Agent:
                 lst.sort()
         return delta
 
-    @property
-    def reachable(self):
-        return [a for a in Agent.all if a != self and a.id not in self.cant_reach]
-
     def broadcast(self, delta):
         self.say('Broadcasting to agents I can reach.')
         targets = self.reachable
@@ -263,7 +259,7 @@ class Agent:
                 a.receive(delta)
 
     def gossip(self, targets=None):
-        """
+        """\
         A.1: gossip           -- talk to any agents that A.1 can reach
         """
         if targets is None:

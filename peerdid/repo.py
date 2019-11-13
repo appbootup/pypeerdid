@@ -14,6 +14,13 @@ class Repo:
         self.path = Repo.norm_path(path)
         assert not os.path.isfile(path)
 
+    def get_state(self, *dids):
+        state = []
+        for did in dids:
+            file = self.get_doc(did).file
+            state.append({did: file.snapshot})
+        return state
+
     def new_doc(self, genesis_doc, signatures=[]):
         if not os.path.isdir(self.path):
             # Create a single folder, but not multiple layers of folders.
